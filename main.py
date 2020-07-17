@@ -2,7 +2,7 @@ import googlemaps
 
 from config import API_KEY
 
-from openpyxl import load_workbook
+from openpyxl import load_workbook, Workbook
 from time import sleep
 import json
 
@@ -119,9 +119,55 @@ def check_dupes():
 
 
 def get_contact_info():
+    client = googlemaps.Client(key=API_KEY)
+
+    # open results
+    with open("filtered_results.json", "r") as f:
+        result = json.load(f)
+    # map airport codes to list of place_ids
+    code_to_place_ids = {}
+    for code in result:
+        place_ids = []
+        for place in result[code]:
+            place_ids.append(place["place_id"])
+        code_to_place_ids[code] = place_ids
+
+    # make places detail request with place_id
+    details = []
+    for code in code_to_place_ids:
+        place_ids = code_to_place_ids[code]
+
+        # create list of tuples of Airport ID, Name, Address, Phone
+        for place_id in place_ids:
+            result = client.place(place_id=place_id)["result"]
+            # print(result)
+            business_name = result.get("name")
+            address = result.get('formatted_address',"")
+            phone = result.get('formatted_phone_number',"")
+
+            place_details = [code, business_name, address, phone]
+            details.append(place_details)
+            print(place_details)
+    workbook = Workbook()
+    sheet = workbook.active
+
+    sheet["A1"] = "IATA"
+    sheet["B1"] = "Name"
+    sheet["C1"] = "Address"
+    sheet["D1"] = "Phone"
+
+    for i in range(2, len(details) + 2):
+        for letter, detail in zip(["A", "B", "C", "D"], details[i-2]):
+            sheet["{}{}".format(letter, i)] = detail
+
+    workbook.save(filename="Place_Details_udf.xlsx")
+
+    # save list as excel
+
     pass
 
+
 if __name__ == '__main__':
-    get_businesses()
-    check_dupes()
-    # get_contact_info()
+    # get_businesses()
+    # check_dupes()
+    get_contact_info()
