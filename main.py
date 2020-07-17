@@ -2,10 +2,9 @@ import googlemaps
 
 from config import API_KEY
 
-from openpyxl import Workbook, load_workbook
+from openpyxl import load_workbook
 from time import sleep
 import json
-from pyairports.airports import Airports  # https://github.com/NICTA/pyairports
 
 
 def get_codes():
@@ -39,13 +38,13 @@ def get_codes_mapped(codes):
     return code_to_coord
 
 
-def main():
+def get_businesses():
     codes = get_codes()
     # codes = ["LGA"]
     code_to_coord = get_codes_mapped(codes)
     print(code_to_coord)
     results_dict = {}
-    all_results = []
+    place_ids = []
     client = googlemaps.Client(key=API_KEY)
 
     for code in codes:
@@ -64,9 +63,9 @@ def main():
         for result in results:
             try:
                 if result["business_status"] == 'OPERATIONAL':
-                    if result not in all_results:  # awful way to do it
+                    if result['place_id'] not in place_ids:  # awful way to do it
                         filtered_results.append(result)
-                        all_results.append(result)
+                        place_ids.append(result['place_id'])
                     else:
                         pass
             except:
@@ -74,11 +73,55 @@ def main():
         results_dict[code] = filtered_results
         sleep(1)
 
-    print(len(all_results))
+    print(len(place_ids))
 
-    with open('result.json', 'w') as outfile:
+    with open('results.json', 'w') as outfile:
         json.dump(results_dict, outfile)
 
 
+def check_dupes():
+    with open("results.json", "r") as f:
+        results = json.load(f)
+    all_values = []
+    for code in results:
+        # print(results[code])
+        # all_values.extend(list(map(lambda x: x.values(), results[code])))
+        all_values.extend(results[code])
+    # print(len(all_values))
+    # print(len(set(all_values)))
+    place_ids = []
+    for val in all_values:
+        place_ids.append(val["place_id"])
+
+    print(len(place_ids))
+    print(len(set(place_ids)))
+    unique_ids = list(set(place_ids))
+
+    new_results = {}
+    for code in results:
+        values = results[code]
+        new_values = []
+        for value in values:
+            if value['place_id'] in unique_ids:
+                unique_ids.remove(value['place_id'])
+                new_values.append(value)
+            else:
+                pass
+        new_results[code] = new_values
+    all_new_values = []
+    for code in new_results:
+        # print(results[code])
+        # all_values.extend(list(map(lambda x: x.values(), results[code])))
+        all_new_values.extend(new_results[code])
+    print(len(all_new_values))
+    with open('filtered_results.json', 'w') as outfile:
+        json.dump(new_results, outfile)
+
+
+def get_contact_info():
+    pass
+
 if __name__ == '__main__':
-    main()
+    get_businesses()
+    check_dupes()
+    # get_contact_info()
